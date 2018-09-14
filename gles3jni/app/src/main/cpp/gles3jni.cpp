@@ -19,6 +19,8 @@
 #include <string.h>
 #include <time.h>
 
+#include <android/bitmap.h>
+
 #include "gles3jni.h"
 
 const Vertex QUAD[4] = {
@@ -233,6 +235,14 @@ void Renderer::render() {
     checkGlError("Renderer::render");
 }
 
+void Renderer::set2DTexture(uint32_t *data, int width, int height) {
+
+}
+
+void Renderer::setDepthTexture(uint32_t *data, int width, int height) {
+
+}
+
 // ----------------------------------------------------------------------------
 
 static Renderer* g_renderer = NULL;
@@ -241,6 +251,11 @@ extern "C" {
     JNIEXPORT void JNICALL Java_com_android_gles3jni_GLES3JNILib_init(JNIEnv* env, jobject obj);
     JNIEXPORT void JNICALL Java_com_android_gles3jni_GLES3JNILib_resize(JNIEnv* env, jobject obj, jint width, jint height);
     JNIEXPORT void JNICALL Java_com_android_gles3jni_GLES3JNILib_step(JNIEnv* env, jobject obj);
+    JNIEXPORT void JNICALL Java_com_android_gles3jni_GLES3JNILib_set2DTexture(
+            JNIEnv *env, jclass type, jobject bmp, jint height, jint width);
+
+    JNIEXPORT void JNICALL Java_com_android_gles3jni_GLES3JNILib_setDepthTexture(
+            JNIEnv *env, jclass type, jobject bmp, jint height, jint width);
 };
 
 #if !defined(DYNAMIC_ES3)
@@ -284,3 +299,41 @@ Java_com_android_gles3jni_GLES3JNILib_step(JNIEnv* env, jobject obj) {
         g_renderer->render();
     }
 }
+
+void Java_com_android_gles3jni_GLES3JNILib_set2DTexture(JNIEnv *env, jclass type, jobject bmp,
+                                                        jint height, jint width) {
+    uint32_t *bmp_data = nullptr;
+    AndroidBitmapInfo bitmap_info;
+
+    AndroidBitmap_lockPixels(env, bmp, reinterpret_cast<void **>(&bmp_data));
+
+    AndroidBitmap_getInfo(env, bmp, &bitmap_info);
+    ALOGE("format %d", bitmap_info.format);
+
+    if (bmp_data != nullptr) {
+        if (g_renderer) {
+            g_renderer->set2DTexture(bmp_data, width, height);
+        }
+    }
+    AndroidBitmap_unlockPixels(env, bmp);
+
+}
+
+void Java_com_android_gles3jni_GLES3JNILib_setDepthTexture(JNIEnv *env, jclass type, jobject bmp,
+                                                           jint height, jint width) {
+    uint32_t *bmp_data = nullptr;
+    AndroidBitmapInfo bitmap_info;
+
+    AndroidBitmap_lockPixels(env, bmp, reinterpret_cast<void **>(&bmp_data));
+
+    AndroidBitmap_getInfo(env, bmp, &bitmap_info);
+    ALOGE("format %d", bitmap_info.format);
+
+    if (bmp_data != nullptr) {
+        if (g_renderer) {
+            g_renderer->setDepthTexture(bmp_data, width, height);
+        }
+    }
+    AndroidBitmap_unlockPixels(env, bmp);
+}
+

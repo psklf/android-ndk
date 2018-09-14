@@ -18,6 +18,8 @@ package com.android.gles3jni;
 
 // Wrapper for native library
 
+import android.graphics.Bitmap;
+
 public class GLES3JNILib {
 
      static {
@@ -27,4 +29,9 @@ public class GLES3JNILib {
      public static native void init();
      public static native void resize(int width, int height);
      public static native void step();
+
+     public static native void set2DTexture(Bitmap bmp, int height, int width);
+
+     public static native void setDepthTexture(Bitmap bmp, int height, int width);
+
 }

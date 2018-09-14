@@ -45,4 +45,5 @@ target_link_libraries(gles3jni
             android
             EGL
             log
-            m)
+            m
+            jnigraphics)

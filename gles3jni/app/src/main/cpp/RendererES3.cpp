@@ -28,30 +28,45 @@
 static const char VERTEX_SHADER[] =
     "#version 300 es\n"
     "layout(location = " STRV(POS_ATTRIB) ") in vec2 pos;\n"
-    "layout(location=" STRV(COLOR_ATTRIB) ") in vec4 color;\n"
+    "layout(location=" STRV(COLOR_ATTRIB) ") in vec2 color;\n"
     "layout(location=" STRV(SCALEROT_ATTRIB) ") in vec4 scaleRot;\n"
     "layout(location=" STRV(OFFSET_ATTRIB) ") in vec2 offset;\n"
-    "out vec4 vColor;\n"
+    "out vec2 vTexCood;\n"
     "void main() {\n"
-    "    mat2 sr = mat2(scaleRot.xy, scaleRot.zw);\n"
-    "    gl_Position = vec4(sr*pos + offset, 0.0, 1.0);\n"
-    "    vColor = color;\n"
+
+    "    gl_Position = vec4(pos, 0.0, 1.0);\n"
+    "    vTexCood = color;\n"
     "}\n";
 
 static const char FRAGMENT_SHADER[] =
-    "#version 300 es\n"
-    "precision mediump float;\n"
-    "in vec4 vColor;\n"
-    "out vec4 outColor;\n"
-    "void main() {\n"
-    "    outColor = vColor;\n"
-    "}\n";
+        "#version 300 es\n"
+                "precision mediump float;\n"
+                "out vec4 outColor;\n"
+                "in vec2 vTexCood;\n"
+                "uniform sampler2D texture0;\n"
+                "uniform sampler2D texture1;\n"
+                "void main() {\n"
+                "outColor = texture(texture0, vTexCood);\n"
+                "float depth = texture(texture1, vTexCood).r;\n"
+                "outColor.a = outColor.a * (1.0f - depth);\n"
+                "}\n";
+
+static const float TEX_COORD[] = {
+        0, 1,
+        1, 1,
+        0, 0,
+        1, 0
+};
 
 class RendererES3: public Renderer {
 public:
     RendererES3();
     virtual ~RendererES3();
     bool init();
+
+    void set2DTexture(uint32_t *data, int width, int height) override;
+
+    void setDepthTexture(uint32_t *data, int width, int height) override;
 
 private:
     enum {VB_INSTANCE, VB_SCALEROT, VB_OFFSET, VB_COUNT};
@@ -104,9 +119,16 @@ bool RendererES3::init() {
 
     glBindBuffer(GL_ARRAY_BUFFER, mVB[VB_INSTANCE]);
     glVertexAttribPointer(POS_ATTRIB, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)offsetof(Vertex, pos));
-    glVertexAttribPointer(COLOR_ATTRIB, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), (const GLvoid*)offsetof(Vertex, rgba));
     glEnableVertexAttribArray(POS_ATTRIB);
+
+    GLuint color_buf;
+    glGenBuffers(1, &color_buf);
+    glBindBuffer(GL_ARRAY_BUFFER, color_buf);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(TEX_COORD), TEX_COORD, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(COLOR_ATTRIB, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0);
     glEnableVertexAttribArray(COLOR_ATTRIB);
+
 
     glBindBuffer(GL_ARRAY_BUFFER, mVB[VB_SCALEROT]);
     glVertexAttribPointer(SCALEROT_ATTRIB, 4, GL_FLOAT, GL_FALSE, 4*sizeof(float), 0);
@@ -117,6 +139,9 @@ bool RendererES3::init() {
     glVertexAttribPointer(OFFSET_ATTRIB, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), 0);
     glEnableVertexAttribArray(OFFSET_ATTRIB);
     glVertexAttribDivisor(OFFSET_ATTRIB, 1);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     ALOGV("Using OpenGL ES 3.0 renderer");
     return true;
@@ -162,4 +187,51 @@ void RendererES3::draw(unsigned int numInstances) {
     glUseProgram(mProgram);
     glBindVertexArray(mVBState);
     glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, numInstances);
+}
+
+
+void RendererES3::set2DTexture(uint32_t *data, int width, int height) {
+    Renderer::set2DTexture(data, width, height);
+
+    glUseProgram(mProgram);
+
+    GLuint texture;
+
+    glActiveTexture(GL_TEXTURE0);
+    glGenTextures(1, &texture);
+
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0 ,GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glUniform1i(glGetUniformLocation(mProgram, "texture0"), 0);
+}
+
+
+void RendererES3::setDepthTexture(uint32_t *data, int width, int height) {
+    Renderer::setDepthTexture(data, width, height);
+
+    glUseProgram(mProgram);
+
+    GLuint texture;
+
+    glActiveTexture(GL_TEXTURE1);
+    glGenTextures(1, &texture);
+
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0 ,GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+
+    glUniform1i(glGetUniformLocation(mProgram, "texture1"), 1);
 }

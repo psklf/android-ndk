@@ -85,6 +85,11 @@ public:
     void resize(int w, int h);
     void render();
 
+    virtual void set2DTexture(uint32_t *data, int width, int height);
+
+    virtual void setDepthTexture(uint32_t *data, int width, int height);
+
+
 protected:
     Renderer();
 

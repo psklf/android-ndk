@@ -17,6 +17,8 @@
 package com.android.gles3jni;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.PixelFormat;
 import android.opengl.GLSurfaceView;
 import android.util.AttributeSet;
@@ -38,18 +40,33 @@ class GLES3JNIView extends GLSurfaceView {
         super(context);
         // Pick an EGLConfig with RGB8 color, 16-bit depth, no stencil,
         // supporting OpenGL ES 2.0 or later backwards-compatible versions.
-        setEGLConfigChooser(8, 8, 8, 0, 16, 0);
+        setEGLConfigChooser(8, 8, 8, 8, 16, 0);
         setEGLContextClientVersion(3);
         setRenderer(new Renderer());
     }
 
-    private static class Renderer implements GLSurfaceView.Renderer {
+    private  class Renderer implements GLSurfaceView.Renderer {
         public void onDrawFrame(GL10 gl) {
             GLES3JNILib.step();
         }
 
         public void onSurfaceChanged(GL10 gl, int width, int height) {
-            GLES3JNILib.resize(width, height);
+            GLES3JNILib.resize(width, width);
+
+
+            BitmapFactory.Options opt = new BitmapFactory.Options();
+            opt.inScaled = false;
+            Bitmap bmp = BitmapFactory.decodeResource(GLES3JNIView.this.getResources(),
+                    R.mipmap.color, opt);
+            Bitmap bmp_depth = BitmapFactory.decodeResource(GLES3JNIView.this.getResources(),
+                    R.mipmap.depth, opt);
+
+
+            GLES3JNILib.set2DTexture(bmp, bmp.getWidth(), bmp.getHeight());
+            GLES3JNILib.setDepthTexture(bmp_depth, bmp_depth.getWidth(), bmp_depth.getHeight());
+
+            bmp.recycle();
+            bmp_depth.recycle();
         }
 
         public void onSurfaceCreated(GL10 gl, EGLConfig config) {
